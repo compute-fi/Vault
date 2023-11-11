@@ -19,4 +19,23 @@ library ErrorsLib {
     error INVALID_ACCESS_ERROR();
     /// @notice Thrown when swap path fee in reinvest is invalid.
     error INVALID_FEE_ERROR();
+
+    /// UniswapV2ERC4626Swap error codes
+    /// @notice Shares are lower than the minimum required.
+    error NOT_MIN_SHARES_OUT();
+
+    /// @notice Amount is lower than the minimum required.
+    error NOT_MIN_AMOUNT_OUT();
+
+    /// @notice Thrown if the twap oracle doesn't exist
+    error TWAP_NON_EXISTENT();
+
+    /// @notice Thrown when trying to redeem with 0 tokens invested
+    error ZERO_SHARES();
+
+    /// @notice Thrown when slippage set is invalid
+    error INVALID_SLIPPAGE();
+
+    /// @notice Thrown when a 0 msg.value deposit has been tried
+    error ZERO_DEPOSIT();
 }
