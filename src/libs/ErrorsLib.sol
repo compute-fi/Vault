@@ -38,4 +38,7 @@ library ErrorsLib {
 
     /// @notice Thrown when a 0 msg.value deposit has been tried
     error ZERO_DEPOSIT();
+
+    /// @dev Error if msg.sender doesn't have a valid KYC Token
+    error NO_VALID_KYC_TOKEN();
 }

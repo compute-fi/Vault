@@ -20,7 +20,7 @@ import {ErrorsLib} from "../../libs/ErrorsLib.sol";
 /// @title CompoundV2ERC4626
 /// @notice Custom implementation of the ERC4626 interface for Compound V2
 
-contract CompoundV2ER4626 is ERC4626 {
+contract CompoundV2ERC4626 is ERC4626 {
     /* ========== Libraries ========== */
     using LibCompound for ICERC20;
     using SafeTransferLib for ERC20;
@@ -45,6 +45,9 @@ contract CompoundV2ER4626 is ERC4626 {
 
     /// @notice Pointer to swapInfo
     bytes public swapPath;
+
+    /// @notice The Compound Comptroller contract
+    IComptroller public immutable comptroller;
 
     ISwapRouter public immutable swapRouter =
         ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
@@ -73,17 +76,16 @@ contract CompoundV2ER4626 is ERC4626 {
         ERC20 reward_,
         ICERC20 cToken_,
         IComptroller comptroller_,
-        address manager_,
-        IERC721 nftToken_
+        address manager_
     ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
         reward = reward_;
         cToken = cToken_;
         comptroller = comptroller_;
         manager = manager_;
         ICERC20[] memory cTokens = new ICERC20[](1);
-        cTokens[0] = cToken_;
+        cTokens[0] = cToken;
         comptroller.enterMarkets(cTokens);
-        nftToken = nftToken_;
+        // nftToken = nftToken_;
     }
 
     /* ========== Modifier ========== */
@@ -104,7 +106,7 @@ contract CompoundV2ER4626 is ERC4626 {
         address tokenMid_,
         uint24 poolFee2_
     ) external {
-        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS();
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
         if (poolFee1_ == 0) revert ErrorsLib.INVALID_FEE_ERROR();
         if (poolFee2_ == 0 || tokenMid_ == address(0)) {
             swapPath = abi.encodePacked(reward, poolFee1_, address(asset));
@@ -133,14 +135,14 @@ contract CompoundV2ER4626 is ERC4626 {
         ISwapRouter.ExactInputParams memory params = ISwapRouter
             .ExactInputParams({
                 path: swapPath,
-                receipient: msg.sender,
+                recipient: msg.sender,
                 deadline: block.timestamp,
                 amountIn: earned,
                 amountOutMinimum: minAmountOut_
             });
 
         /// Executes swap
-        reinvest = swapRouter.exactInput(params);
+        reinvestAmount = swapRouter.exactInput(params);
         if (reinvestAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
         afterDeposit(asset.balanceOf(address(this)), 0);
     }
@@ -168,11 +170,6 @@ contract CompoundV2ER4626 is ERC4626 {
         // deposit into cToken
         uint256 errorCode = cToken.mint(assets_);
         if (errorCode != NO_ERROR) revert ErrorsLib.COMPOUND_ERROR(errorCode);
-    }
-
-    function maxDeposit(address) public view override returns (uint256) {
-        if (comptroller.mintGuardianPaused(cToken)) return 0;
-        return type(uint256).max;
     }
 
     function maxDeposit(address) public view override returns (uint256) {

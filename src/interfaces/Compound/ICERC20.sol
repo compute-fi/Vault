@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 
-import {IInterestRateModel} from "./IIntersetRateModel.sol";
+import {IInterestRateModel} from "./IInterestRateModel.sol";
 
 abstract contract ICERC20 is ERC20 {
     function mint(uint256 underlyingAmount) external virtual returns (uint256);
