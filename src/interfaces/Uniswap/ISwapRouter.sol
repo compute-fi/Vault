@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.20;
+// SPDX-License-Identifier: GPL-2.0-or-later
+pragma solidity ^0.8.21;
 pragma abicoder v2;
 
 import "./IUniswapV3SwapCallback.sol";
 
 /// @title Router token swapping functionality
 /// @notice Functions for swapping tokens via Uniswap V3
-interface ISwapRouter is IUniswapV3Callback {
+interface ISwapRouter is IUniswapV3SwapCallback {
     struct ExactInputSingleParams {
         address tokenIn;
         address tokenOut;
@@ -18,9 +18,9 @@ interface ISwapRouter is IUniswapV3Callback {
         uint160 sqrtPriceLimitX96;
     }
 
-    /// @notice Swaps 'amountIn' of one token for as much as possible of another token
-    /// @param params The exact input swap parameters, see ExactInputSingleParams
-    /// @return amountOut The amount of the tokenOut received from the swap
+    /// @notice Swaps `amountIn` of one token for as much as possible of another token
+    /// @param params The parameters necessary for the swap, encoded as `ExactInputSingleParams` in calldata
+    /// @return amountOut The amount of the received token
     function exactInputSingle(
         ExactInputSingleParams calldata params
     ) external payable returns (uint256 amountOut);
@@ -33,9 +33,9 @@ interface ISwapRouter is IUniswapV3Callback {
         uint256 amountOutMinimum;
     }
 
-    /// @notice Swaps 'amountIn' of one token for as much as possible of another token
-    /// @param params The exact input swap parameters, see ExactInputParams
-    /// @return amountOut The amount of the tokenOut received from the swap
+    /// @notice Swaps `amountIn` of one token for as much as possible of another along the specified path
+    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactInputParams` in calldata
+    /// @return amountOut The amount of the received token
     function exactInput(
         ExactInputParams calldata params
     ) external payable returns (uint256 amountOut);
@@ -51,9 +51,9 @@ interface ISwapRouter is IUniswapV3Callback {
         uint160 sqrtPriceLimitX96;
     }
 
-    /// @notice Swaps as little as possbile of one token for 'amountOut' of another token
-    /// @param params The exact output swap parameters, see ExactOutputSingleParams
-    /// @return amountIn The amount of the tokenIn spent on the swap
+    /// @notice Swaps as little as possible of one token for `amountOut` of another token
+    /// @param params The parameters necessary for the swap, encoded as `ExactOutputSingleParams` in calldata
+    /// @return amountIn The amount of the input token
     function exactOutputSingle(
         ExactOutputSingleParams calldata params
     ) external payable returns (uint256 amountIn);
@@ -66,9 +66,9 @@ interface ISwapRouter is IUniswapV3Callback {
         uint256 amountInMaximum;
     }
 
-    /// @notice Swaps as little as possible of one token for 'amountOut' of another token
-    /// @param params The exact output swap parameters, see ExactOutputParams
-    /// @return amountIn The amount of the tokenIn spent on the swap
+    /// @notice Swaps as little as possible of one token for `amountOut` of another along the specified path (reversed)
+    /// @param params The parameters necessary for the multi-hop swap, encoded as `ExactOutputParams` in calldata
+    /// @return amountIn The amount of the input token
     function exactOutput(
         ExactOutputParams calldata params
     ) external payable returns (uint256 amountIn);

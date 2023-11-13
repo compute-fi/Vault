@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import "forge-std/Test.sol";
 import {ERC20} from "solmate/tokens/ERC20.sol";
@@ -9,6 +9,8 @@ import {IComptroller} from "../../src/interfaces/Compound/IComptroller.sol";
 
 contract CompoundV2ERC4626Test is Test {
     uint256 public ethFork;
+    uint256 public immutable ONE_THOUSAND_E18 = 1000 ether;
+    uint256 public immutable HUNDRED_E18 = 100 ether;
 
     address public bob;
 
@@ -24,7 +26,7 @@ contract CompoundV2ERC4626Test is Test {
     ICERC20 public cToken = ICERC20(0x0545a8eaF7ff6bB6F708CbB544EA55DBc2ad7b2a);
     IComptroller public comptroller =
         IComptroller(0x3cBe63aAcF6A064D32072a630A3eab7545C54d78);
-    address public weth = (0x0B1ba0af832d7C05fD64161E0Db78E85978E8082);
+    address public weth = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
 
     // Mainnet
 
@@ -47,12 +49,12 @@ contract CompoundV2ERC4626Test is Test {
         );
         vault.setRoute(3000, weth, 3000);
         console.log("vault address: %s", address(vault));
-        bob = address(0x6FC5113b55771b884880785042e78521B8b719fa);
-        deal(address(asset), bob, 1000 ether);
+        bob = address(0x1);
+        deal(address(asset), bob, ONE_THOUSAND_E18);
     }
 
     function testDepositWithdraw() public {
-        uint256 amount = 100 ether;
+        uint256 amount = HUNDRED_E18;
 
         vm.startPrank(bob);
 
@@ -71,11 +73,9 @@ contract CompoundV2ERC4626Test is Test {
     }
 
     function testHarvest() public {
-        uint256 amount = 100 ether;
-
         vm.startPrank(bob);
 
-        uint256 bobUnderlyingAmount = amount;
+        uint256 bobUnderlyingAmount = HUNDRED_E18;
 
         asset.approve(address(vault), bobUnderlyingAmount);
         assertEq(asset.allowance(bob, address(vault)), bobUnderlyingAmount);
@@ -85,11 +85,9 @@ contract CompoundV2ERC4626Test is Test {
         assertEq(bobUnderlyingAmount, bobShareAmount);
         assertEq(vault.totalSupply(), bobShareAmount);
         assertEq(vault.balanceOf(bob), bobShareAmount);
-        console.log("Block Number: %s", block.number);
         /// @dev Warp to make the account accrue some COMP
         // vm.warp(block.timestamp + 10 days);
         vm.roll(block.number + 100);
-        console.log("New Block Number: %s", block.number);
         vault.harvest(0);
         assertGt(vault.totalAssets(), bobUnderlyingAmount);
         vault.withdraw(bobAssetsToWithdraw, bob, bob);

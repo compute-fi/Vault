@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 /// @title Callback for IUniswapV3PoolActions#swap
 /// @notice Any contract that calls IUniswapV3PoolActions#swap must implement this interface
-interface IUniswapV3Callback {
+interface IUniswapV3SwapCallback {
     /// @notice Called to 'msg.sender' after executing a swap via IUniswapV3Pool#swap
     /// @dev In the implementation you must pay the pool tokens owed for the swap,
     /// The caller of this method must be checked to be a UniswapV3Pool deployed by the canonical UniswapV3Factory.

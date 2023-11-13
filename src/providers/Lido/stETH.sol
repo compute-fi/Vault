@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
@@ -35,9 +35,9 @@ contract StETHERC4626 is ERC4626 {
         address weth_,
         address stEth_
     ) ERC4626(ERC20(weth_), "ERC4626-Wrapped stETH", "wLstETH") {
-        weth = IWETH(weth_);
+        stEthAsset = ERC20(stEth_);
         stEth = IStETH(stEth_);
-        stEthAsset = ERC20(address(stEth_));
+        weth = IWETH(weth_);
     }
 
     receive() external payable {}
