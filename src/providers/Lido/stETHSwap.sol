@@ -33,9 +33,9 @@ contract StETHERC4626Swap is ERC4626 {
     uint256 public slippage;
     uint256 public immutable slippageFloat = 10_000; // 1% slippage
 
-    int128 public immutable ethIndex;
+    int128 public immutable ethIndex = 0;
 
-    int128 public immutable stEthIndex;
+    int128 public immutable stEthIndex = 1;
 
     /* ========== Constructor ========== */
 

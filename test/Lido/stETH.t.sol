@@ -22,7 +22,7 @@ contract stEthTest is Test {
 
     StETHERC4626 public vault;
 
-    address public weth = 0x0B1ba0af832d7C05fD64161E0Db78E85978E8082;
+    address public weth = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
     address public stEth = 0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F;
 
     address public bob;
@@ -36,6 +36,7 @@ contract stEthTest is Test {
         vm.selectFork(ethFork);
 
         vault = new StETHERC4626(weth, stEth);
+        console.log("vault address: %s", address(vault));
         bob = address(0x1);
         manager = msg.sender;
 
@@ -63,5 +64,34 @@ contract stEthTest is Test {
         console.log("bob assets from shares: %s", bobAssetsFromShares);
 
         vault.withdraw(bobAssetsFromShares, bob, bob);
+    }
+
+    function testMintRedeem() public {
+        uint256 bobSharesMint = HUNDRED_E18;
+
+        vm.startPrank(bob);
+
+        uint256 expectedAssetsFromShares = vault.previewRedeem(bobSharesMint);
+
+        console.log(
+            "expectedAssetFromShares (to approve): %s",
+            expectedAssetsFromShares
+        );
+
+        _weth.approve(address(vault), expectedAssetsFromShares);
+
+        uint256 bobAssetAmount = vault.mint(bobSharesMint, bob);
+        console.log("bob asset amount: %s", bobAssetAmount);
+        assertEq(expectedAssetsFromShares, bobAssetAmount);
+    }
+
+    function testDepositETH() public {
+        uint256 bobEth = HUNDRED_E18;
+
+        startHoax(bob, bobEth + 1 ether);
+
+        uint256 expectedSharesFromAsset = vault.convertToShares(bobEth);
+        uint256 bobShareAmount = vault.deposit{value: bobEth}(bob);
+        assertEq(expectedSharesFromAsset, bobShareAmount);
     }
 }
