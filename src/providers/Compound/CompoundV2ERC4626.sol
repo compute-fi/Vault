@@ -76,7 +76,8 @@ contract CompoundV2ERC4626 is ERC4626 {
         ERC20 reward_,
         ICERC20 cToken_,
         IComptroller comptroller_,
-        address manager_
+        address manager_,
+        IERC721 nftToken_
     ) ERC4626(asset_, _vaultName(asset_), _vaultSymbol(asset_)) {
         reward = reward_;
         cToken = cToken_;
@@ -85,7 +86,7 @@ contract CompoundV2ERC4626 is ERC4626 {
         ICERC20[] memory cTokens = new ICERC20[](1);
         cTokens[0] = cToken;
         comptroller.enterMarkets(cTokens);
-        // nftToken = nftToken_;
+        nftToken = nftToken_;
     }
 
     /* ========== Modifier ========== */

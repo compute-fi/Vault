@@ -3,6 +3,8 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
@@ -24,6 +26,8 @@ contract StETHERC4626Swap is ERC4626 {
 
     /* ========== Variables ========== */
 
+    IERC721 public immutable nftToken;
+
     address manager;
 
     IStETH public stEth;
@@ -37,6 +41,9 @@ contract StETHERC4626Swap is ERC4626 {
 
     int128 public immutable stEthIndex = 1;
 
+    /* ========== Mappings ========== */
+    mapping(address => uint256) public nftIdOwner;
+
     /* ========== Constructor ========== */
 
     /// @param weth_ weth address (Vault's underlying / deposit token)
@@ -48,7 +55,8 @@ contract StETHERC4626Swap is ERC4626 {
         address weth_,
         address stEth_,
         address curvePool_,
-        address manager_
+        address manager_,
+        IERC721 nftToken_
     ) ERC4626(ERC20(weth_), "ERC4626-Wrapped stETH", "wLstETH") {
         stEth = IStETH(stEth_);
         weth = IWETH(weth_);
@@ -56,9 +64,18 @@ contract StETHERC4626Swap is ERC4626 {
         stEth.approve(address(curvePool), type(uint256).max);
         manager = manager_;
         slippage = 9900;
+        nftToken = nftToken_;
     }
 
     receive() external payable {}
+
+    /* ========== Modifier ========== */
+    modifier onlyNFTOwner() {
+        uint256 _nftId = nftIdOwner[msg.sender];
+        if (IERC721(nftToken).ownerOf(_nftId) != msg.sender)
+            revert ErrorsLib.INVALID_ACCESS();
+        _;
+    }
 
     /* ========== Overrides ========== */
 

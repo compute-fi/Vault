@@ -3,6 +3,8 @@ pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
+import {ERC721} from "solmate/tokens/ERC721.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 
@@ -26,6 +28,10 @@ contract StETHERC4626 is ERC4626 {
     IStETH public stEth;
     ERC20 public stEthAsset;
     IWETH public weth;
+    IERC721 public immutable nftToken;
+
+    /* ========== Mappings ========== */
+    mapping(address => uint256) public nftIdOwner;
 
     /* ========== Constructor ========== */
 
@@ -33,14 +39,24 @@ contract StETHERC4626 is ERC4626 {
     /// @param stEth_ stEth address (Vault's asset)
     constructor(
         address weth_,
-        address stEth_
+        address stEth_,
+        IERC721 nftToken_
     ) ERC4626(ERC20(weth_), "ERC4626-Wrapped stETH", "wLstETH") {
         stEthAsset = ERC20(stEth_);
         stEth = IStETH(stEth_);
         weth = IWETH(weth_);
+        nftToken = nftToken_;
     }
 
     receive() external payable {}
+
+    /* ========== Modifier ========== */
+    modifier onlyNFTOwner() {
+        uint256 _nftId = nftIdOwner[msg.sender];
+        if (IERC721(nftToken).ownerOf(_nftId) != msg.sender)
+            revert ErrorsLib.INVALID_ACCESS();
+        _;
+    }
 
     /* ========== Internal Hooks ========== */
 
