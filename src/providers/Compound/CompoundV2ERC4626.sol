@@ -43,6 +43,12 @@ contract CompoundV2ERC4626 is ERC4626 {
     /// @notice The Compound cToken contract
     ICERC20 public immutable cToken;
 
+    /// @notice Address of the ComputeCaller contract
+    address public ComputeCaller;
+
+    /// @notice Link token address in Goerli
+    address public constant LINK = 0x326C977E6efc84E512bB9C30f76E30c160eD06FB;
+
     /// @notice Pointer to swapInfo
     bytes public swapPath;
 
@@ -62,6 +68,8 @@ contract CompoundV2ERC4626 is ERC4626 {
 
     /* ========== Mappings ========== */
     mapping(address => uint256) public nftIdOwner;
+    /// @notice Mapping of deposit amount per user per vault based on ERC20 token
+    mapping(address => mapping(uint256 => uint256)) public userVaultDeposit;
 
     /* ========== Constructor ========== */
 
@@ -126,26 +134,56 @@ contract CompoundV2ERC4626 is ERC4626 {
     /// @notice Claims liquidity mining rewards from Compound and perform low-level swap
     /// Calling harvest() claims COMP token through direct Pair swap for best control and lowest cost
     /// harvest() can be called by anyone. Ideally this function should be adjusted per needs(e.g add fee for harvesting)
-    function harvest(uint256 minAmountOut_) external {
+    function harvest(uint256 minAmountOut_) external onlyNFTOwner {
         ICERC20[] memory cTokens = new ICERC20[](1);
         cTokens[0] = cToken;
         comptroller.claimComp(address(this), cTokens);
 
         uint256 earned = ERC20(reward).balanceOf(address(this));
-        uint256 reinvestAmount;
+        /// execute swapToLink and send to ComputeCaller
+        uint256 linkAmount = _swapToLink(earned, minAmountOut_);
+        if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
+        if (ComputeCaller != address(0)) {
+            ERC20(LINK).safeTransfer(ComputeCaller, linkAmount);
+        }
+
+        emit EventsLib.HarvestComp(msg.sender, earned, linkAmount);
+        afterDeposit(asset.balanceOf(address(this)), 0);
+    }
+
+    /// @notice Function to set the address of the ComputeCaller contract
+    function setComputeCaller(address computeCaller_) external {
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
+        ComputeCaller = computeCaller_;
+    }
+
+    /// @notice Function to get the accumulated deposit amount per user per vault based on ERC20 token
+    /// @notice May need to review this function to make sure it's correct
+    function getUserVaultDeposit(
+        address user_,
+        uint256 nftId_
+    ) external view returns (uint256) {
+        return userVaultDeposit[user_][nftId_];
+    }
+
+    /// @notice Function to swap earned COMP to LINK
+    function _swapToLink(
+        uint256 amountIn_,
+        uint256 minAmountOut_
+    ) internal returns (uint256) {
         ISwapRouter.ExactInputParams memory params = ISwapRouter
             .ExactInputParams({
-                path: swapPath,
-                recipient: msg.sender,
+                path: abi.encodePacked(reward, LINK),
+                recipient: address(this),
                 deadline: block.timestamp,
-                amountIn: earned,
+                amountIn: amountIn_,
                 amountOutMinimum: minAmountOut_
             });
 
         /// Executes swap
-        reinvestAmount = swapRouter.exactInput(params);
-        if (reinvestAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
-        afterDeposit(asset.balanceOf(address(this)), 0);
+        uint256 linkAmount = swapRouter.exactInput(params);
+        if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
+        return linkAmount;
     }
 
     /* ========== ERC4626 Overrides ========== */

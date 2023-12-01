@@ -2,6 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ERC4626} from "solmate/mixins/ERC4626.sol";
 import {ERC721} from "solmate/tokens/ERC721.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
@@ -11,8 +12,11 @@ import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {IStETH} from "../../interfaces/Lido/IStETH.sol";
 import {IWETH} from "../../interfaces/IWETH.sol";
 import {ICurve} from "../../interfaces/Lido/ICurve.sol";
+import {ISwapRouter} from "../../interfaces/Uniswap/ISwapRouter.sol";
+import {DexSwap} from "../../libs/DexSwap.sol";
 
 import {AddressLib} from "../../libs/Constants.sol";
+import {EventsLib} from "../../libs/EventsLib.sol";
 import {ErrorsLib} from "../../libs/ErrorsLib.sol";
 
 /// @title Lido's stETH ERC4626 wrapper
@@ -37,12 +41,24 @@ contract StETHERC4626Swap is ERC4626 {
     uint256 public slippage;
     uint256 public immutable slippageFloat = 10_000; // 1% slippage
 
+    bytes public swapPath;
+
+    address public ComputeCaller;
+
+    IERC20 public constant LINK =
+        IERC20(0x326C977E6efc84E512bB9C30f76E30c160eD06FB);
+
+    ISwapRouter public immutable swapRouter =
+        ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
+
     int128 public immutable ethIndex = 0;
 
     int128 public immutable stEthIndex = 1;
 
     /* ========== Mappings ========== */
     mapping(address => uint256) public nftIdOwner;
+    /// @notice Mapping of deposit amount per user per vault based on ERC20 token
+    mapping(address => mapping(uint256 => uint256)) public userVaultDeposit;
 
     /* ========== Constructor ========== */
 
@@ -75,6 +91,72 @@ contract StETHERC4626Swap is ERC4626 {
         if (IERC721(nftToken).ownerOf(_nftId) != msg.sender)
             revert ErrorsLib.INVALID_ACCESS();
         _;
+    }
+
+    /* ========== Functions ========== */
+    /// @notice Sets the swap path for reinvesting rewards
+    /// @param poolFee1_ The pool fee for the first pair
+    /// @param poolFee2_ The pool fee for the second pair
+    /// @param tokenMid_ The token for the first pair
+    function setRoute(
+        uint24 poolFee1_,
+        address tokenMid_,
+        uint24 poolFee2_
+    ) external {
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
+        if (poolFee1_ == 0) revert ErrorsLib.INVALID_FEE_ERROR();
+        if (poolFee2_ == 0 || tokenMid_ == address(0)) {
+            swapPath = abi.encodePacked(stEth, poolFee1_, address(asset));
+        } else {
+            swapPath = abi.encodePacked(
+                stEth,
+                poolFee1_,
+                tokenMid_,
+                poolFee2_,
+                address(asset)
+            );
+            stEth.approve(address(swapRouter), type(uint256).max);
+        }
+    }
+
+    /// @notice Claims stETH rewards and swaps them to LINK
+    /// @notice LINK tokens are sent to the ComputeCaller contract
+    /// @param minAmountOut_ The minimum amount of LINK to receive
+    function harvest(uint256 minAmountOut_) external onlyNFTOwner {
+        uint256 earned = stEth.balanceOf(address(this));
+        uint256 linkAmount = _swapToLink(earned, minAmountOut_);
+        if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
+        if (ComputeCaller != address(0))
+            LINK.transfer(ComputeCaller, linkAmount);
+        emit EventsLib.HarveststETH(msg.sender, earned, linkAmount);
+        afterDeposit(earned, linkAmount);
+    }
+
+    /// @notice Sets the ComputeCaller address
+    /// @param ComputeCaller_ The ComputeCaller address
+    function setComputeCaller(address ComputeCaller_) external {
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
+        ComputeCaller = ComputeCaller_;
+    }
+
+    /// @notice Function to swap stETH to LINK
+    /// @param amountIn_ The amount of stETH to swap
+    /// @param amountOutMin_ The minimum amount of LINK to receive
+    function _swapToLink(
+        uint256 amountIn_,
+        uint256 amountOutMin_
+    ) internal returns (uint256) {
+        ISwapRouter.ExactInputParams memory params = ISwapRouter
+            .ExactInputParams({
+                path: abi.encodePacked(stEth, LINK),
+                recipient: address(this),
+                deadline: block.timestamp,
+                amountIn: amountIn_,
+                amountOutMinimum: amountOutMin_
+            });
+        uint256 linkAmount = swapRouter.exactInput(params);
+        if (linkAmount < amountOutMin_) revert ErrorsLib.MIN_AMOUNT_ERROR();
+        return linkAmount;
     }
 
     /* ========== Overrides ========== */

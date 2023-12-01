@@ -17,4 +17,9 @@ library EventsLib {
 
     /// @notice Emitted when harvest has been called for a given token vault
     event HarvestReward(AaveV2ERC4626 vault);
+
+    /// @notice Emitted when COMP rewards have been claimed for a given token vault
+    event HarvestComp(address _owner, uint256 _reward, uint256 _linkToken);
+
+    event HarveststETH(address _owner, uint256 _reward, uint256 _linkToken);
 }

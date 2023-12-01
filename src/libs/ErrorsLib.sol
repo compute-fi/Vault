@@ -11,6 +11,9 @@ library ErrorsLib {
     /// @notice Thrown when trying to redeem shares worth 0 assets
     error ZERO_ASSETS();
 
+    /// @notice Thrown when amount is zero
+    error ZERO_AMOUNT_ERROR();
+
     /// @notice Thrown when a call to Compound returned an error.
     /// @param errorCode The error code returned by Compound
     error COMPOUND_ERROR(uint256 errorCode);
@@ -19,6 +22,9 @@ library ErrorsLib {
     error INVALID_ACCESS_ERROR();
     /// @notice Thrown when swap path fee in reinvest is invalid.
     error INVALID_FEE_ERROR();
+
+    /// @notice Thrown when address is invalid.
+    error INVALID_ADDRESS_ERROR();
 
     /// UniswapV2ERC4626Swap error codes
     /// @notice Shares are lower than the minimum required.
