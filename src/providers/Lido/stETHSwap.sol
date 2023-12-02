@@ -8,6 +8,7 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {KeeperCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 
 import {IStETH} from "../../interfaces/Lido/IStETH.sol";
 import {IWETH} from "../../interfaces/IWETH.sol";
@@ -33,6 +34,7 @@ contract StETHERC4626Swap is ERC4626 {
     IERC721 public immutable nftToken;
 
     address manager;
+    address public authorizedExecutor;
 
     IStETH public stEth;
     IWETH public weth;
@@ -93,6 +95,11 @@ contract StETHERC4626Swap is ERC4626 {
         _;
     }
 
+    modifier onlyAuthorizedExecutor() {
+        if (msg.sender != authorizedExecutor) revert ErrorsLib.INVALID_ACCESS();
+        _;
+    }
+
     /* ========== Functions ========== */
     /// @notice Sets the swap path for reinvesting rewards
     /// @param poolFee1_ The pool fee for the first pair
@@ -119,24 +126,40 @@ contract StETHERC4626Swap is ERC4626 {
         }
     }
 
+    /// @notice Sets the ComputeCaller address
+    /// @param ComputeCaller_ The ComputeCaller address
+    function setComputeCaller(address ComputeCaller_) external {
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
+        ComputeCaller = ComputeCaller_;
+    }
+
+    function checkUpkeep(
+        bytes calldata /* checkData */
+    ) external view returns (bool upkeepNeeded, bytes memory performData) {
+        upkeepNeeded = _isUpdateCampaignStatusNeeded();
+        performData = "";
+    }
+
+    function performUpkeep(
+        bytes calldata /* performData */
+    ) external onlyAuthorizedExecutor {
+        if (_isUpdateCampaignStatusNeeded()) {
+            harvest();
+        }
+    }
+
     /// @notice Claims stETH rewards and swaps them to LINK
     /// @notice LINK tokens are sent to the ComputeCaller contract
-    /// @param minAmountOut_ The minimum amount of LINK to receive
-    function harvest(uint256 minAmountOut_) external onlyNFTOwner {
+
+    function harvest() internal onlyNFTOwner {
         uint256 earned = stEth.balanceOf(address(this));
+        uint256 minAmountOut_ = type(uint256).max;
         uint256 linkAmount = _swapToLink(earned, minAmountOut_);
         if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
         if (ComputeCaller != address(0))
             LINK.transfer(ComputeCaller, linkAmount);
         emit EventsLib.HarveststETH(msg.sender, earned, linkAmount);
         afterDeposit(earned, linkAmount);
-    }
-
-    /// @notice Sets the ComputeCaller address
-    /// @param ComputeCaller_ The ComputeCaller address
-    function setComputeCaller(address ComputeCaller_) external {
-        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
-        ComputeCaller = ComputeCaller_;
     }
 
     /// @notice Function to swap stETH to LINK
@@ -157,6 +180,13 @@ contract StETHERC4626Swap is ERC4626 {
         uint256 linkAmount = swapRouter.exactInput(params);
         if (linkAmount < amountOutMin_) revert ErrorsLib.MIN_AMOUNT_ERROR();
         return linkAmount;
+    }
+
+    function _isUpdateCampaignStatusNeeded() internal view returns (bool) {
+        if (block.timestamp >= 1 days) {
+            return true;
+        }
+        return false;
     }
 
     /* ========== Overrides ========== */

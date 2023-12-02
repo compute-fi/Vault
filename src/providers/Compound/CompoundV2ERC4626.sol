@@ -7,6 +7,7 @@ import {ERC721} from "solmate/tokens/ERC721.sol";
 import {IERC721} from "forge-std/interfaces/IERC721.sol";
 import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {KeeperCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/KeeperCompatibleInterface.sol";
 
 import {ICERC20} from "../../interfaces/Compound/ICERC20.sol";
 import {LibCompound} from "../../libs/LibCompound.sol";
@@ -36,6 +37,9 @@ contract CompoundV2ERC4626 is ERC4626 {
 
     /// @notice Access control for harvest() route
     address public immutable manager;
+
+    /// @notice Chainlink Keeper executor
+    address public authorizedExecutor;
 
     /// @notice The Comp-like token contract
     ERC20 public immutable reward;
@@ -105,6 +109,11 @@ contract CompoundV2ERC4626 is ERC4626 {
         _;
     }
 
+    modifier onlyAuthorizedExecutor() {
+        if (msg.sender != authorizedExecutor) revert ErrorsLib.INVALID_ACCESS();
+        _;
+    }
+
     /* ========== Functions ========== */
     /// @notice Sets the swap path for reinvesting rewards
     /// @param poolFee1_ The fee for the first swap
@@ -131,30 +140,32 @@ contract CompoundV2ERC4626 is ERC4626 {
         ERC20(reward).approve(address(swapRouter), type(uint256).max);
     }
 
-    /// @notice Claims liquidity mining rewards from Compound and perform low-level swap
-    /// Calling harvest() claims COMP token through direct Pair swap for best control and lowest cost
-    /// harvest() can be called by anyone. Ideally this function should be adjusted per needs(e.g add fee for harvesting)
-    function harvest(uint256 minAmountOut_) external onlyNFTOwner {
-        ICERC20[] memory cTokens = new ICERC20[](1);
-        cTokens[0] = cToken;
-        comptroller.claimComp(address(this), cTokens);
-
-        uint256 earned = ERC20(reward).balanceOf(address(this));
-        /// execute swapToLink and send to ComputeCaller
-        uint256 linkAmount = _swapToLink(earned, minAmountOut_);
-        if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
-        if (ComputeCaller != address(0)) {
-            ERC20(LINK).safeTransfer(ComputeCaller, linkAmount);
-        }
-
-        emit EventsLib.HarvestComp(msg.sender, earned, linkAmount);
-        afterDeposit(asset.balanceOf(address(this)), 0);
-    }
-
     /// @notice Function to set the address of the ComputeCaller contract
     function setComputeCaller(address computeCaller_) external {
         if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
         ComputeCaller = computeCaller_;
+    }
+
+    function checkUpkeep(
+        bytes calldata /* checkData */
+    ) external view returns (bool upkeepNeeded, bytes memory performData) {
+        upkeepNeeded = _isUpdateCampaignStatusNeeded();
+        performData = "";
+    }
+
+    function performUpkeep(
+        bytes calldata /* performData */
+    ) external onlyAuthorizedExecutor {
+        if (_isUpdateCampaignStatusNeeded()) {
+            harvest();
+        }
+    }
+
+    /// @notice Function to set the address of the Chainlink Keeper executor
+    function setAuthorizedExecutor(
+        address authorizedExecutor_
+    ) external onlyNFTOwner {
+        authorizedExecutor = authorizedExecutor_;
     }
 
     /// @notice Function to get the accumulated deposit amount per user per vault based on ERC20 token
@@ -164,6 +175,27 @@ contract CompoundV2ERC4626 is ERC4626 {
         uint256 nftId_
     ) external view returns (uint256) {
         return userVaultDeposit[user_][nftId_];
+    }
+
+    /// @notice Claims liquidity mining rewards from Compound and perform low-level swap
+    /// Calling harvest() claims COMP token through direct Pair swap for best control and lowest cost
+    /// harvest() can be called by anyone. Ideally this function should be adjusted per needs(e.g add fee for harvesting)
+    function harvest() internal onlyNFTOwner {
+        ICERC20[] memory cTokens = new ICERC20[](1);
+        cTokens[0] = cToken;
+        comptroller.claimComp(address(this), cTokens);
+
+        uint256 earned = ERC20(reward).balanceOf(address(this));
+        /// execute swapToLink and send to ComputeCaller
+        uint256 minAmountOut_ = type(uint256).max;
+        uint256 linkAmount = _swapToLink(earned, minAmountOut_);
+        if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
+        if (ComputeCaller != address(0)) {
+            ERC20(LINK).safeTransfer(ComputeCaller, linkAmount);
+        }
+
+        emit EventsLib.HarvestComp(msg.sender, earned, linkAmount);
+        afterDeposit(asset.balanceOf(address(this)), 0);
     }
 
     /// @notice Function to swap earned COMP to LINK
@@ -184,6 +216,13 @@ contract CompoundV2ERC4626 is ERC4626 {
         uint256 linkAmount = swapRouter.exactInput(params);
         if (linkAmount < minAmountOut_) revert ErrorsLib.MIN_AMOUNT_ERROR();
         return linkAmount;
+    }
+
+    function _isUpdateCampaignStatusNeeded() internal view returns (bool) {
+        if (block.timestamp >= 1 days) {
+            return true;
+        }
+        return false;
     }
 
     /* ========== ERC4626 Overrides ========== */
