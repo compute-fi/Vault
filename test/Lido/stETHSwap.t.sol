@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import {StETHERC4626Swap} from "../../src/providers/Lido/stETHSwap.sol";
 import {FixedPointMathLib} from "solmate/utils/FixedPointMathLib.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
 
 import {ICurve} from "../../src/interfaces/Lido/ICurve.sol";
 import {IStETH} from "../../src/interfaces/Lido/IStETH.sol";
@@ -34,6 +35,7 @@ contract stEthSwapTest is Test {
     IWETH public _weth = IWETH(weth);
     IStETH public _stEth = IStETH(stEth);
     ICurve public _curvePool = ICurve(curvePool);
+    IERC721 dyNFT = IERC721(0xf5D7ef8A011AA683306ff237F26589a658Bce6fF);
 
     function setUp() public {
         ethFork = vm.createFork(GOERLI_RPC_URL);
@@ -42,7 +44,7 @@ contract stEthSwapTest is Test {
         bob = address(0x2);
         manager = msg.sender;
 
-        vault = new StETHERC4626Swap(weth, stEth, curvePool, manager);
+        vault = new StETHERC4626Swap(weth, stEth, curvePool, manager, dyNFT);
         console.log("vault address: %s", address(vault));
 
         deal(weth, alice, ONE_THOUSAND_E18);

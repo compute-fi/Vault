@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.21;
+import {ERC20} from "solmate/tokens/ERC20.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
+import {ICERC20} from "../interfaces/Compound/ICERC20.sol";
+import {IComptroller} from "../interfaces/Compound/IComptroller.sol";
 
 library AddressLib {
     // @dev Vault Name and Symbol
@@ -33,6 +37,20 @@ library AddressLib {
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFFFFFFFFFF;
     uint256 internal constant FROZEN_MASK =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFDFFFFFFFFFFFFFF;
+
+    address constant daiToken = 0x2899a03ffDab5C90BADc5920b4f53B0884EB13cC;
+    address constant cDAI = 0x0545a8eaF7ff6bB6F708CbB544EA55DBc2ad7b2a;
+    address constant uniToken = 0x208F73527727bcB2D9ca9bA047E3979559EB08cC;
+    address constant cUNI = 0x2073d38198511F5Ed8d893AB43A03bFDEae0b1A5;
+    address constant wethToken = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+    address constant cETH = 0x64078a6189Bf45f80091c6Ff2fCEe1B15Ac8dbde;
+    address constant compToken = 0x3587b2F7E0E2D6166d6C14230e7Fe160252B0ba4;
+    address constant cCOMP = 0x0fF50a12759b081Bb657ADaCf712C52bb015F1Cd;
+
+    address constant weth = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+    address constant stEth = 0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F;
+    address constant wstEth = 0x6320cD32aA674d2898A68ec82e869385Fc5f7E2f;
+    address constant curvePool = 0xCEB67769c63cfFc6C8a6c68e85aBE1Df396B7aDA;
 
     /// @notice Reference URL
     // https://docs.aave.com/developers/deployed-contracts/v3-testnet-addresses

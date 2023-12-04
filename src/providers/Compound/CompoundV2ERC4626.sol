@@ -177,6 +177,17 @@ contract CompoundV2ERC4626 is ERC4626 {
         return userVaultDeposit[user_][nftId_];
     }
 
+    /// @notice Function to add ERC20 and CIERC20 tokens to the contract
+    /// @notice This function is only callable by the manager
+    /// @param asset_ The address of the ERC20 token
+    /// @param cToken_ The address of the CIERC20 token
+    function addToken(ERC20 asset_, ICERC20 cToken_) external {
+        if (msg.sender != manager) revert ErrorsLib.INVALID_ACCESS_ERROR();
+        ICERC20[] memory cTokens = new ICERC20[](1);
+        cTokens[0] = cToken_;
+        comptroller.enterMarkets(cTokens);
+    }
+
     /// @notice Claims liquidity mining rewards from Compound and perform low-level swap
     /// Calling harvest() claims COMP token through direct Pair swap for best control and lowest cost
     /// harvest() can be called by anyone. Ideally this function should be adjusted per needs(e.g add fee for harvesting)

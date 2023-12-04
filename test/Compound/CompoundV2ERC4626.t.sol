@@ -6,6 +6,7 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {CompoundV2ERC4626} from "../../src/providers/Compound/CompoundV2ERC4626.sol";
 import {ICERC20} from "../../src/interfaces/Compound/ICERC20.sol";
 import {IComptroller} from "../../src/interfaces/Compound/IComptroller.sol";
+import {IERC721} from "forge-std/interfaces/IERC721.sol";
 
 contract CompoundV2ERC4626Test is Test {
     uint256 public ethFork;
@@ -27,6 +28,7 @@ contract CompoundV2ERC4626Test is Test {
     IComptroller public comptroller =
         IComptroller(0x3cBe63aAcF6A064D32072a630A3eab7545C54d78);
     address public weth = 0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6;
+    IERC721 dyNFT = IERC721(0xf5D7ef8A011AA683306ff237F26589a658Bce6fF);
 
     // Mainnet
 
@@ -45,7 +47,8 @@ contract CompoundV2ERC4626Test is Test {
             reward,
             cToken,
             comptroller,
-            address(this)
+            address(this),
+            IERC721(dyNFT)
         );
         vault.setRoute(3000, weth, 3000);
         console.log("vault address: %s", address(vault));
@@ -88,7 +91,6 @@ contract CompoundV2ERC4626Test is Test {
         /// @dev Warp to make the account accrue some COMP
         // vm.warp(block.timestamp + 10 days);
         vm.roll(block.number + 100);
-        vault.harvest(0);
         assertGt(vault.totalAssets(), bobUnderlyingAmount);
         vault.withdraw(bobAssetsToWithdraw, bob, bob);
     }
